@@ -1,0 +1,400 @@
+{
+  "name": "Voice-Ledger",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a Chinese expense extractor.\nReturn JSON only:\n{\n  \"date\": \"yyyy-mm-dd\",\n  \"amount\": <纯数字>,\n  \"category\": \"<food|transport|...>\",\n  \"desc\": \"<事件描述>\",\n  \"raw\": \"<用户原文>\"\n}\n\n日期计算规则（必读）\n统一基准\n当前真实日期由调用 get_date 获得，格式固定为 yyyy-mm-dd。\n该日期即为“今天”。\n相对日期映射表\n• “今天” → 基准日\n• “昨天” → 基准日 − 1 天\n• “前天” → 基准日 − 2 天\n• “明天” → 基准日 + 1 天（如出现）\n计算步骤\n(1) 调用 get_date 得到 today。\n(2) 根据上表计算目标日期，格式化为 yyyy-mm-dd。\n(3) 将结果写入返回 JSON 的 \"date\" 字段。\n边界处理\n• 若出现未列出的相对词（如“上周三”），强制使用 get_date 返回值。\n• 若出现绝对日期（如“2025-01-30”），直接原样使用，不再计算。\n\n示例1（有相对日期）：\n输入：\"2025-06-21，我吃早餐花了10.5元\"。\n输出：\n{\n  \"date\": \"2025-06-21\",\n  \"amount\": 10.5,\n  \"category\": \"food\",\n  \"desc\": \"买豆浆\",\n  \"raw\": \"今天早上买豆浆花了 10.5 元\"\n}\n示例2（无日期）：\n{\n  \"date\": \"2025-06-21\",\n  \"amount\": 25,\n  \"category\": \"food\",\n  \"desc\": \"吃拉面\",\n  \"raw\": \"中午吃拉面，25\"\n}\n",
+          "maxIterations": 3
+        }
+      },
+      "id": "b5d8f25a-ce78-4ba8-b35e-484a3ae42978",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -1744,
+        -1728
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\nMy name is Voice ledger. How can I assist you today?",
+        "options": {}
+      },
+      "id": "7789a182-cb9d-4d58-ba07-e33e66547efb",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [
+        -2352,
+        -1808
+      ],
+      "webhookId": "6a34ec84-459d-4cc4-83b6-06ae4c99dc8f",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {},
+      "id": "cde1323c-2ed6-4e44-8f79-238b7be65e06",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -1680,
+        -1456
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        -1456
+      ],
+      "id": "4c277010-f33c-44ff-a606-ef7ac5105397",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "XEI0ZkviLfb51RP7",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "=convert expense to JSON:  \n\n{{ $json.output }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "amount",
+              "type": "number",
+              "description": "expense cost",
+              "required": true
+            },
+            {
+              "name": "des",
+              "description": "description of expense",
+              "required": true
+            },
+            {
+              "name": "date",
+              "type": "date",
+              "description": "date in UTC format. "
+            },
+            {
+              "name": "category",
+              "description": "the category of this cost"
+            },
+            {
+              "name": "raw_input",
+              "description": "raw data of this input"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc16a9cb-a8f3-4081-bc32-8a80e2daf88a",
+      "name": "Expense text to JSON parser",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "position": [
+        -1328,
+        -1728
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1txXpSRhG4iFZszd9Feo3bscD7ayRZqKxOOkjUYk9AZE/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1txXpSRhG4iFZszd9Feo3bscD7ayRZqKxOOkjUYk9AZE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.output.date }}",
+            "amount": "={{ $json.output.amount }}",
+            "category": "={{ $json.output.category }}",
+            "des": "={{ $json.output.des }}",
+            "raw_input": "={{ $json.output.raw_input }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "des",
+              "displayName": "des",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "raw_input",
+              "displayName": "raw_input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "eb0fb714-167f-4953-89ec-0e59a35e4cd0",
+      "name": "Save expense into Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        -928,
+        -1728
+      ],
+      "notesInFlow": true,
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PGzewNOpLKQRuMH7",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Do not forget to Clone the Google Sheet and re-link this node to your sheet!"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        -1536
+      ],
+      "id": "7a0b37d5-291b-4ffe-ba2a-863b81e08b8a",
+      "name": "DeepSeek Chat Model1",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "XEI0ZkviLfb51RP7",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "includeTime": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        -1456
+      ],
+      "id": "2ed74c25-b42a-41a3-86a9-b9fa914ce5e7",
+      "name": "Date & Time",
+      "notes": "获取当前date的工具"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "e3ff14eb-db4a-44b2-a574-6d60f564ec4e",
+        "options": {
+          "responseData": "{\n  \"code\": 0,\n  \"msg\": \"处理成功\",\n  \"data\": null\n}"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2352,
+        -1632
+      ],
+      "id": "1c2ca367-8e25-4c69-a942-81d1774e7b35",
+      "name": "Webhook",
+      "webhookId": "e3ff14eb-db4a-44b2-a574-6d60f564ec4e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// 构造新的输出项\nconst outputItem = {\n    json: {\n        sessionId: '',\n        action: '',\n        chatInput: ''\n    }\n};\n\nfor (const item of $input.all()) {\n  console.log(\"接收的Body数据是: \" + JSON.stringify(item.json.body))\n\n  outputItem.json.sessionId = item.json.body.session_id;\n  outputItem.json.action = item.json.body.action;\n  outputItem.json.chatInput = item.json.body.text;\n}\n\nconsole.log(\"Output数据是: \" + JSON.stringify(outputItem))\nreturn outputItem;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        -1680
+      ],
+      "id": "48f9d083-97a9-4c3e-85a9-c04bf46311cf",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "content": "## Project Description \nSay a sentence, enter text, click a button, and automatically write the expenditure record into Google Sheets in a lazy way.\n\n### System Input\n\n| Input | Example |\n| :-----: | :----- |\n| From chat box |  eg. I had lunch for noodles. It cost 18RMB|\n| From  frontend |   I had beef noodle soup for lunch today and it cost 20 RMB. |\n\n### Qucikly use\n1. Use the front-end voice input buttons or use the platform-provided chatbox\n2. Just say the expenses. Eg. I spent 20 yuan on a taxi yesterday, or I ate 5 yuan for breakfast today.\n3. System feedback, successful operation information.\n4. Open Google Sheets to see new records\n\n### Architecture Description\nInput ---> HTTP Node ---> AI Agent ----> DeepSeek Analysis ---> Save to Google Sheets.\n| Node               | Function                                                  | Key Configuration          |\n| :----------------- | :-------------------------------------------------------- | :------------------------- |\n| HTTP In (Webhook)  | Unified entry point that receives JSON:<br>`{\"text\":\"60 yuan for taxi ride\",\"user\":\"zhang\"}` | Method: POST               |\n| AI Agent           | Converts raw text to structured JSON according to Prompt  | See \"Prompt Template\" below |\n| DeepSeek (LLM)     | Secondary verification and completion of missing fields (e.g., date, currency) | temperature=0.1 for stability |\n| Google Sheets      | Writes fields to specified worksheet                       | Authorization + Sheet ID only |\n\n### Agent Prompt\n```You are a Chinese expense extractor.\nReturn JSON only:\n{\n  \"date\": \"yyyy-mm-dd\",\n  \"amount\": <纯数字>,\n  \"category\": \"<food|transport|...>\",\n  \"desc\": \"<事件描述>\",\n  \"raw\": \"<用户原文>\"\n}\n\n日期计算规则（必读）\n统一基准\n当前真实日期由调用 get_date 获得，格式固定为 yyyy-mm-dd。\n该日期即为“今天”。\n相对日期映射表\n• “今天” → 基准日\n• “昨天” → 基准日 − 1 天\n• “前天” → 基准日 − 2 天\n• “明天” → 基准日 + 1 天（如出现）\n计算步骤\n(1) 调用 get_date 得到 today。\n(2) 根据上表计算目标日期，格式化为 yyyy-mm-dd。\n(3) 将结果写入返回 JSON 的 \"date\" 字段。\n边界处理\n• 若出现未列出的相对词（如“上周三”），强制使用 get_date 返回值。\n• 若出现绝对日期（如“2025-01-30”），直接原样使用，不再计算。\n\n示例1（有相对日期）：\n输入：\"2025-06-21，我吃早餐花了10.5元\"。\n输出：\n{\n  \"date\": \"2025-06-21\",\n  \"amount\": 10.5,\n  \"category\": \"food\",\n  \"desc\": \"买豆浆\",\n  \"raw\": \"今天早上买豆浆花了 10.5 元\"\n}\n示例2（无日期）：\n{\n  \"date\": \"2025-06-21\",\n  \"amount\": 25,\n  \"category\": \"food\",\n  \"desc\": \"吃拉面\",\n  \"raw\": \"中午吃拉面，25\"\n}\n```\n\n### Setup\n1. Open n8n → Workflows → Import → Select workflow.json\n2. Fill in credentials:\n   - DeepSeek API Key\n   - Google Sheets OAuth JSON\n3. The frontend application needs to be updated to use the backend request path.\n\n### Google Sheets\n| date       | amount | category  | description | raw_input                  |\n| :--------- | :----- | :-------- | :---------- | :------------------------- |\n| 2025-06-01 | 10     | transport | 打车        | 今天打车花十块钱。         |\n| 2025-05-31 | 15     | food      | 吃牛肉面    | 昨天吃牛肉面花了15块钱。   |\n| 2025-05-31 | 10     | food      | 早饭        | 昨天早饭花了十块。         |",
+        "height": 1680,
+        "width": 768
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3184,
+        -2144
+      ],
+      "typeVersion": 1,
+      "id": "d42e159e-ce00-4e38-b022-7ccfbb344b5e",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Expense text to JSON parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expense text to JSON parser": {
+      "main": [
+        [
+          {
+            "node": "Save expense into Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Expense text to JSON parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "07e2383a-4949-407d-82c8-2bc70f0f1138",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6ac7a47db145f775750bb531bd4652c85d3be5a096edd897701266b6a280600b"
+  },
+  "id": "FF4TBc9CSB2mjaH1",
+  "tags": []
+}
